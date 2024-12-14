@@ -1,11 +1,11 @@
 {
-  "name": "chrome-extension-boilerplate-react-vite",
-  "version": "0.3.4",
-  "description": "chrome extension boilerplate",
-  "license": "MIT",
+  "name": "slack-thread-summarizer",
+  "version": "0.0.1",
+  "description": "Summarize your very long slack threads",
+  "private": true,
   "repository": {
     "type": "git",
-    "url": "https://github.com/Jonghakseo/chrome-extension-boilerplate-react-vite.git"
+    "url": "https://github.com/josephj/slack-copilot.git"
   },
   "type": "module",
   "scripts": {
