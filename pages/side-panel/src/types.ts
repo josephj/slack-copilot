@@ -1,3 +1,26 @@
+export type Language = {
+  code: string;
+  name: string;
+};
+
+export type ThreadData = {
+  channel: string;
+  messages: Array<{
+    text: string;
+    user: string;
+    ts: string;
+    reactions: Array<{
+      name: string;
+      count: number;
+    }>;
+  }>;
+};
+
+export type ThreadDataMessage = {
+  type: 'THREAD_DATA_RESULT';
+  payload: ThreadData;
+};
+
 export type ErrorResponse = {
   error: {
     message: string;

@@ -3,63 +3,10 @@ import { withErrorBoundary, withSuspense } from '@extension/shared';
 import { useState, useEffect, useCallback } from 'react';
 import { askAssistant } from './ask-assistant';
 import ReactMarkdown from 'react-markdown';
-
-type Language = {
-  code: string;
-  name: string;
-};
-
-const SUPPORTED_LANGUAGES: Language[] = [
-  { code: 'zh-TW', name: 'Traditional Chinese (Taiwan)' },
-  { code: 'zh-CN', name: 'Simplified Chinese' },
-  { code: 'zh-HK', name: 'Traditional Chinese (Hong Kong)' },
-  { code: 'en-US', name: 'English (US)' },
-  { code: 'en-AU', name: 'English (Australia)' },
-  { code: 'vi', name: 'Vietnamese' },
-  { code: 'ru', name: 'Russian' },
-  { code: 'fil', name: 'Filipino' },
-  { code: 'th', name: 'Thai' },
-  { code: 'ja', name: 'Japanese' },
-  { code: 'ko', name: 'Korean' },
-];
-
-type ThreadData = {
-  channel: string;
-  messages: Array<{
-    text: string;
-    user: string;
-    ts: string;
-    reactions: Array<{
-      name: string;
-      count: number;
-    }>;
-  }>;
-};
-
-type ThreadDataMessage = {
-  type: 'THREAD_DATA_RESULT';
-  payload: ThreadData;
-};
-
-const formatThreadForLLM = (threadData: ThreadData) => {
-  return JSON.stringify(
-    {
-      channel: threadData.channel,
-      messages: threadData.messages.map(message => ({
-        user: message.user,
-        content: message.text,
-        timestamp: new Date(parseFloat(message.ts) * 1000).toISOString(),
-        reactions:
-          message.reactions?.map(reaction => ({
-            emoji: reaction.name,
-            count: reaction.count,
-          })) || [],
-      })),
-    },
-    null,
-    2,
-  );
-};
+import { formatThreadForLLM } from './utils';
+import type { Language, ThreadData, ThreadDataMessage } from './types';
+import { SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE_CODE } from './vars';
+import systemPromptTemplate from './system.md?raw';
 
 type Message = {
   role: 'assistant' | 'user';
@@ -72,7 +19,7 @@ const SidePanel = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
   const [threadData, setThreadData] = useState<ThreadData | null>(null);
-  const [selectedLanguage, setSelectedLanguage] = useState<string>('zh-TW');
+  const [selectedLanguage, setSelectedLanguage] = useState<Language['code']>(DEFAULT_LANGUAGE_CODE);
   const [messages, setMessages] = useState<Message[]>([]);
   const [userInput, setUserInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -90,13 +37,15 @@ const SidePanel = () => {
       setIsTyping(true);
       setIsGenerating(true);
 
-      const systemPrompt = `You are a helpful assistant that can analyze thread conversation and provide insights in ${
-        SUPPORTED_LANGUAGES.find(lang => lang.code === selectedLanguage)?.name
-      } (${selectedLanguage}). ${
-        isInitialAnalysis
-          ? 'Taking the reactions as the importance consideration but not necessary to show it as a section. Highlight the most important information such as numbers, human names, and important dates in the thread.'
-          : 'Provide concise and relevant answers to follow-up questions.'
-      } Output should be in markdown format.`;
+      const selectedLang = SUPPORTED_LANGUAGES.find(lang => lang.code === selectedLanguage);
+      const analysisType = isInitialAnalysis
+        ? 'Taking the reactions as the importance consideration but not necessary to show it as a section. Highlight the most important information such as numbers, human names, and important dates in the thread.'
+        : 'Provide concise and relevant answers to follow-up questions.';
+
+      const systemPrompt = systemPromptTemplate
+        .replace('{{language_name}}', selectedLang?.name || '')
+        .replace('{{language_code}}', selectedLanguage)
+        .replace('{{analysis_type}}', analysisType);
 
       const previousMessages = messages.map(msg => ({
         role: msg.role,
