@@ -13,25 +13,5 @@ export const captureThread = () => {
     };
   };
 
-  setTimeout(() => {
-    injectScript();
-  }, 1000);
-
-  const handleMessage = (event: MessageEvent) => {
-    const { type, data } = event.data;
-    if (type === 'SLACK_THREAD_DATA') {
-      console.log('[DEBUG] SLACK_THREAD_DATA Thread data:', data);
-    }
-  };
-
-  window.addEventListener('message', handleMessage);
+  setTimeout(injectScript, 1000);
 };
-
-// window.addEventListener('message', event => {
-//   if (event.data.type === 'SLACK_THREAD_DATA') {
-//     chrome.runtime.sendMessage({
-//       type: 'SLACK_THREAD_DATA',
-//       value: event.data,
-//     });
-//   }
-// });

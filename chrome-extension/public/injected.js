@@ -1,4 +1,24 @@
 (function () {
+  let cachedUserMap = null;
+  let lastFetchTime = 0;
+  const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes in milliseconds
+
+  function replaceUserMentions(text, userMap) {
+    // Replace <@U1234|username> format
+    text = text.replace(/<@(U[A-Z0-9]+)\|[^>]+>/g, (match, userId) => {
+      const user = userMap.get(userId);
+      return user ? `@${user.display_name || user.real_name || user.name}` : match;
+    });
+
+    // Replace <@U1234> format
+    text = text.replace(/<@(U[A-Z0-9]+)>/g, (match, userId) => {
+      const user = userMap.get(userId);
+      return user ? `@${user.display_name || user.real_name || user.name}` : match;
+    });
+
+    return text;
+  }
+
   /**
    * Generate query parameters matching Slack's format
    * @returns {URLSearchParams}
@@ -22,16 +42,17 @@
 
   async function fetchSlackUsers(token) {
     try {
-      const baseUrl = new URL('/cache/T03QWUZKP/users/list', 'https://edgeapi.slack.com');
+      const baseUrl = new URL('/api/users.list', window.location.origin);
       const queryParams = generateQueryParams();
-      baseUrl.search = queryParams.toString();
       baseUrl.search = queryParams.toString();
 
       const formData = new URLSearchParams({
         token: token,
-        filter: 'everyone AND NOT bots AND NOT apps',
-        count: '100',
-        present_first: 'true',
+        limit: '1000',
+        include_locale: 'false',
+        _x_reason: 'user-list-store.fetch',
+        _x_mode: 'online',
+        _x_sonic: 'true',
       });
 
       const response = await fetch(baseUrl.toString(), {
@@ -51,7 +72,7 @@
       }
 
       return new Map(
-        data.users.map(user => [
+        data.members.map(user => [
           user.id,
           {
             id: user.id,
@@ -64,6 +85,47 @@
       );
     } catch (error) {
       console.error('Error fetching users:', error);
+      throw error;
+    }
+  }
+
+  // Helper function to process reactions - add this before fetchSlackThread
+  function processReactions(reactions, userMap) {
+    if (!reactions) return [];
+
+    return reactions.map(reaction => ({
+      name: reaction.name,
+      count: reaction.count,
+      users: reaction.users || [],
+      userDetails: (reaction.users || [])
+        .map(userId => userMap.get(userId))
+        .filter(Boolean)
+        .map(user => ({
+          name: user.display_name || user.real_name || user.name,
+          id: user.id,
+        })),
+    }));
+  }
+
+  async function getUserMap(token) {
+    const now = Date.now();
+
+    // Return cached data if it's fresh
+    if (cachedUserMap && now - lastFetchTime < CACHE_DURATION) {
+      return cachedUserMap;
+    }
+
+    // Fetch fresh data
+    try {
+      cachedUserMap = await fetchSlackUsers(token);
+      lastFetchTime = now;
+      return cachedUserMap;
+    } catch (error) {
+      // If fetch fails and we have cached data, return it as fallback
+      if (cachedUserMap) {
+        console.warn('Failed to fetch fresh user data, using cached data:', error);
+        return cachedUserMap;
+      }
       throw error;
     }
   }
@@ -81,8 +143,7 @@
         throw new Error('Could not find Slack token');
       }
 
-      // First fetch all users
-      // const userMap = await fetchSlackUsers(token);
+      const userMap = await getUserMap(token);
 
       // Generate base URL with query parameters
       const baseUrl = new URL('/api/conversations.replies', window.location.origin);
@@ -118,28 +179,32 @@
         throw new Error(`Slack API error: ${data.error}`);
       }
 
+      // Helper function to replace user mentions in text
       return {
         thread_ts: threadTs,
         channel_id: channel,
         message_count: data.messages.length,
-        messages: data.messages.map(msg => ({
-          id: msg.client_msg_id,
-          ts: msg.ts,
-          thread_ts: msg.thread_ts,
-          user: msg.user,
-          // user_details: userMap.get(msg.user),
-          text: msg.text,
-          reply_count: msg.reply_count,
-          reply_users_count: msg.reply_users_count,
-          latest_reply: msg.latest_reply,
-          blocks: msg.blocks,
-          files: msg.files,
-          reactions: msg.reactions,
-          edited: msg.edited,
-        })),
+        messages: data.messages.map(msg => {
+          const userDetails = userMap.get(msg.user);
+          return {
+            id: msg.client_msg_id,
+            ts: msg.ts,
+            thread_ts: msg.thread_ts,
+            user: userDetails ? userDetails.display_name || userDetails.real_name || userDetails.name : msg.user,
+            user_details: userDetails,
+            text: replaceUserMentions(msg.text, userMap),
+            reply_count: msg.reply_count,
+            reply_users_count: msg.reply_users_count,
+            latest_reply: msg.latest_reply,
+            blocks: msg.blocks,
+            files: msg.files,
+            reactions: processReactions(msg.reactions, userMap),
+            edited: msg.edited,
+          };
+        }),
       };
     } catch (error) {
-      console.error('Error fetching thread:', error);
+      console.error('[DEBUG] Error fetching thread:', error);
       throw error;
     }
   }
