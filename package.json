@@ -1,6 +1,6 @@
 {
   "name": "slack-thread-summarizer",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Summarize your very long slack threads",
   "private": true,
   "repository": {
