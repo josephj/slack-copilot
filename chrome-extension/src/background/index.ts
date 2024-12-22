@@ -1,7 +1,7 @@
 import 'webextension-polyfill';
 // import { exampleThemeStorage } from '@extension/storage';
 import debounce from 'debounce';
-// chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
 
 // exampleThemeStorage.get().then(theme => {
 //   console.log('theme', theme);

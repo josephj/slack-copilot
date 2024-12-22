@@ -23,6 +23,7 @@ const SidePanel = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [userInput, setUserInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [hasReceivedData, setHasReceivedData] = useState(false);
 
   useEffect(() => {
     chrome.storage.local.get('selectedLanguage').then(result => {
@@ -97,12 +98,13 @@ const SidePanel = () => {
   useEffect(() => {
     const handleMessage = (
       message: ThreadDataMessage,
-      _,
+      _: unknown,
       sender: chrome.runtime.MessageSender,
       sendResponse: () => void,
     ) => {
       if (message.type === 'THREAD_DATA_RESULT') {
         setIsLoading(true);
+        setHasReceivedData(true);
         setThreadData(null);
         setMessages([]);
 
@@ -145,6 +147,14 @@ const SidePanel = () => {
     await handleAskAssistant(userInput);
   };
 
+  if (!hasReceivedData) {
+    return (
+      <div className={`flex h-screen items-center justify-center ${isLight ? 'bg-slate-50' : 'bg-gray-800'}`}>
+        <p className={`text-lg ${isLight ? 'text-gray-900' : 'text-gray-100'}`}>Hello! Select a Slack thread first</p>
+      </div>
+    );
+  }
+
   if (isLoading) {
     return (
       <div className={`flex h-screen items-center justify-center ${isLight ? 'bg-slate-50' : 'bg-gray-800'}`}>
@@ -160,7 +170,7 @@ const SidePanel = () => {
           <div className="space-y-4">
             <div className="mb-4 flex items-center gap-2">
               <label htmlFor="language-select" className="font-medium">
-                Output Language:
+                Language:
               </label>
               <select
                 id="language-select"

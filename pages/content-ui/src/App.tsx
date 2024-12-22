@@ -25,20 +25,24 @@ export default function App() {
 
   const hideButton = useCallback(() => {
     clearHideTimeout();
-    const timeoutId = setTimeout(() => {
+    const timeoutId = window.setTimeout(() => {
       setPosition(prev => ({ ...prev, show: false }));
-    }, 200); // 200ms delay before hiding
-    setHideTimeoutId(timeoutId);
+    }, 500);
+    setHideTimeoutId(Number(timeoutId));
   }, [clearHideTimeout]);
 
   useEffect(() => {
     const handleMouseEnter = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
-      if (target.tagName === 'A' && target.getAttribute('href')?.includes('/archives/')) {
+      if (
+        target.getAttribute('data-qa') === 'reply_bar_view_thread' ||
+        (target.tagName === 'A' && target.getAttribute('href')?.includes('/archives/'))
+      ) {
         clearHideTimeout();
         const rect = target.getBoundingClientRect();
-        const linkUrl = target.getAttribute('href') || '';
-        console.log('linkUrl :', linkUrl);
+        const linkElement = target.getAttribute('data-qa') === 'reply_bar_view_thread' ? target.closest('a') : target;
+        const linkUrl = linkElement?.getAttribute('href') || '';
+
         setPosition({
           x: rect.right,
           y: rect.top + rect.height / 2,
@@ -52,7 +56,11 @@ export default function App() {
       const target = e.target as HTMLElement;
       const relatedTarget = e.relatedTarget as HTMLElement;
 
-      if (target.tagName === 'A' && !relatedTarget?.closest('#star-button') && !isButtonHovered) {
+      if (
+        (target.getAttribute('data-qa') === 'reply_bar_view_thread' || target.tagName === 'A') &&
+        !relatedTarget?.closest('#star-button') &&
+        !isButtonHovered
+      ) {
         hideButton();
       }
     };
@@ -74,7 +82,10 @@ export default function App() {
 
   const handleButtonMouseLeave = () => {
     setIsButtonHovered(false);
-    hideButton();
+    const linkElement = document.querySelector('a:hover');
+    if (!linkElement?.getAttribute('href')?.includes('/archives/')) {
+      hideButton();
+    }
   };
 
   const handleClickStar = () => {
@@ -123,7 +134,7 @@ export default function App() {
   }, []);
 
   return (
-    <div id="content-ui-root" className="fixed inset-0 z-[9999] pointer-events-none">
+    <div id="content-ui-root" className="pointer-events-none fixed inset-0 z-[9999]">
       {position.show && (
         <Button
           id="star-button"
@@ -133,14 +144,13 @@ export default function App() {
           onMouseLeave={handleButtonMouseLeave}
           style={{
             position: 'fixed',
-            left: `${position.x}px`,
+            left: `${position.x + 10}px`,
             top: `${position.y}px`,
             transform: 'translateY(-50%)',
           }}
-          className="flex size-6 items-center justify-center rounded-full p-0 shadow-lg transition-transform hover:scale-110 pointer-events-auto">
-          <span role="img" aria-label="star">
-            ⭐
-          </span>
+          className="pointer-events-auto flex h-6 items-center gap-2 rounded-full px-2 shadow-lg transition-transform hover:scale-105">
+          <span className="text-xs">⭐</span>
+          <span className="text-xs">Summarize</span>
         </Button>
       )}
     </div>
