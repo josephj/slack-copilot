@@ -19,6 +19,7 @@ export type ThreadData = {
 export type ThreadDataMessage = {
   type: 'THREAD_DATA_RESULT';
   payload: ThreadData;
+  url?: string;
 };
 
 export type ErrorResponse = {

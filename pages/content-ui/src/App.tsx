@@ -125,13 +125,14 @@ export default function App() {
         chrome.runtime.sendMessage({
           type: 'THREAD_DATA_RESULT',
           payload: event.data.payload,
+          url: position.linkUrl,
         });
       }
     };
 
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, []);
+  }, [position.linkUrl]);
 
   return (
     <div id="content-ui-root" className="pointer-events-none fixed inset-0 z-[9999]">

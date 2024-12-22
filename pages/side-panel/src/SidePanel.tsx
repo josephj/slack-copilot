@@ -14,6 +14,10 @@ type Message = {
   timestamp: number;
 };
 
+const convertToWebUrl = (url: string): string => {
+  return url.replace('/archives/', '/messages/').replace(/&cid=[^&]+/, '');
+};
+
 const SidePanel = () => {
   const isLight = true;
   const [isLoading, setIsLoading] = useState(true);
@@ -24,6 +28,7 @@ const SidePanel = () => {
   const [userInput, setUserInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [hasReceivedData, setHasReceivedData] = useState(false);
+  const [threadUrl, setThreadUrl] = useState<string>('');
 
   useEffect(() => {
     chrome.storage.local.get('selectedLanguage').then(result => {
@@ -107,6 +112,7 @@ const SidePanel = () => {
         setHasReceivedData(true);
         setThreadData(null);
         setMessages([]);
+        setThreadUrl(message.url ? convertToWebUrl(message.url) : '');
 
         setTimeout(() => {
           setThreadData(message.payload);
@@ -168,26 +174,40 @@ const SidePanel = () => {
       <div className={`flex-1 overflow-auto p-4 ${isLight ? 'text-gray-900' : 'text-gray-100'}`}>
         {threadData && (
           <div className="space-y-4">
-            <div className="mb-4 flex items-center gap-2">
-              <label htmlFor="language-select" className="font-medium">
-                Language:
-              </label>
-              <select
-                id="language-select"
-                value={selectedLanguage}
-                onChange={e => handleLanguageChange(e.target.value)}
-                disabled={isGenerating}
-                className={`rounded-md px-3 py-1.5 ${
-                  isLight ? 'border-gray-300 bg-white text-gray-900' : 'border-gray-600 bg-gray-700 text-gray-100'
-                } border focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  isGenerating ? 'cursor-not-allowed opacity-50' : ''
-                }`}>
-                {SUPPORTED_LANGUAGES.map(lang => (
-                  <option key={lang.code} value={lang.code}>
-                    {lang.name}
-                  </option>
-                ))}
-              </select>
+            <div className="mb-4 space-y-2">
+              <div className="flex items-center gap-2">
+                <label htmlFor="language-select" className="font-medium">
+                  Language:
+                </label>
+                <select
+                  id="language-select"
+                  value={selectedLanguage}
+                  onChange={e => handleLanguageChange(e.target.value)}
+                  disabled={isGenerating}
+                  className={`rounded-md px-3 py-1.5 ${
+                    isLight ? 'border-gray-300 bg-white text-gray-900' : 'border-gray-600 bg-gray-700 text-gray-100'
+                  } border focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    isGenerating ? 'cursor-not-allowed opacity-50' : ''
+                  }`}>
+                  {SUPPORTED_LANGUAGES.map(lang => (
+                    <option key={lang.code} value={lang.code}>
+                      {lang.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {threadUrl && (
+                <div className="text-sm text-gray-500">
+                  Thread URL:{' '}
+                  <a
+                    href={threadUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-500 hover:underline">
+                    {threadUrl}
+                  </a>
+                </div>
+              )}
             </div>
 
             <div className="space-y-4">
