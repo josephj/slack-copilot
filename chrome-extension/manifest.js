@@ -28,8 +28,8 @@ const manifest = deepmerge(
     name: '__MSG_extensionName__',
     version: packageJson.version,
     description: '__MSG_extensionDescription__',
-    host_permissions: ['<all_urls>'],
-    permissions: ['storage', 'scripting', 'tabs', 'webNavigation'],
+    host_permissions: ['*://*.slack.com/*'],
+    permissions: ['storage', 'scripting', 'tabs', 'webNavigation', 'declarativeNetRequest'],
     options_page: 'options/index.html',
     background: {
       service_worker: 'background.iife.js',
@@ -63,10 +63,19 @@ const manifest = deepmerge(
     // devtools_page: 'devtools/index.html',
     web_accessible_resources: [
       {
-        resources: ['*.js', '*.css', '*.svg', 'icon-128.png', 'icon-34.png', 'injected.js'],
+        resources: ['*.js', '*.json', '*.css', '*.svg', 'icon-128.png', 'icon-34.png', 'injected.js'],
         matches: ['*://*/*'],
       },
     ],
+    declarative_net_request: {
+      rule_resources: [
+        {
+          id: 'ruleset_1',
+          enabled: true,
+          path: 'rules.json',
+        },
+      ],
+    },
   },
   !isFirefox && sidePanelConfig,
 );

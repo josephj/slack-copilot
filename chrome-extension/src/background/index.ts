@@ -40,4 +40,60 @@ chrome.runtime.onMessage.addListener(message => {
       }
     });
   }
+
+  if (message.type === 'OPEN_IN_WEB_CHANGED') {
+    if (message.value) {
+      chrome.declarativeNetRequest.updateDynamicRules({
+        removeRuleIds: [1],
+        addRules: [
+          {
+            id: 1,
+            priority: 1,
+            action: {
+              type: 'redirect',
+              redirect: {
+                regexSubstitution: 'https://\\1.slack.com/messages/\\2',
+              },
+            },
+            condition: {
+              regexFilter: 'https://(.*?).slack.com/archives/(.*)',
+              resourceTypes: ['main_frame'],
+            },
+          },
+        ],
+      });
+    } else {
+      chrome.declarativeNetRequest.updateDynamicRules({
+        removeRuleIds: [1],
+      });
+    }
+  }
+});
+
+chrome.storage.local.get('openInWeb', result => {
+  if (result.openInWeb) {
+    chrome.declarativeNetRequest.updateDynamicRules({
+      removeRuleIds: [1],
+      addRules: [
+        {
+          id: 1,
+          priority: 1,
+          action: {
+            type: 'redirect',
+            redirect: {
+              regexSubstitution: 'https://\\1.slack.com/messages/\\2',
+            },
+          },
+          condition: {
+            regexFilter: 'https://(.*?).slack.com/archives/(.*)',
+            resourceTypes: ['main_frame'],
+          },
+        },
+      ],
+    });
+  } else {
+    chrome.declarativeNetRequest.updateDynamicRules({
+      removeRuleIds: [1],
+    });
+  }
 });

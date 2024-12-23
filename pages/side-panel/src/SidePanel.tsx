@@ -18,22 +18,45 @@ const convertToWebUrl = (url: string): string => {
   return url.replace('/archives/', '/messages/').replace(/&cid=[^&]+/, '');
 };
 
+const formatDisplayUrl = (url: string): string => {
+  try {
+    const urlObj = new URL(url);
+    const pathParts = urlObj.pathname.split('/');
+    // Get team ID (usually the first part after /messages/)
+    const teamId = pathParts[2];
+    // Get the channel and thread parts
+    const remainingPath = pathParts.slice(3).join('/');
+    return `/${teamId.slice(0, 6)}/${remainingPath}`;
+  } catch {
+    return url;
+  }
+};
+
 const SidePanel = () => {
   const isLight = true;
-  const [isLoading, setIsLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
   const [threadData, setThreadData] = useState<ThreadData | null>(null);
   const [selectedLanguage, setSelectedLanguage] = useState<Language['code']>(DEFAULT_LANGUAGE_CODE);
   const [messages, setMessages] = useState<Message[]>([]);
   const [userInput, setUserInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
-  const [hasReceivedData, setHasReceivedData] = useState(false);
   const [threadUrl, setThreadUrl] = useState<string>('');
+  const [openInWeb, setOpenInWeb] = useState(true);
 
   useEffect(() => {
     chrome.storage.local.get('selectedLanguage').then(result => {
       if (result.selectedLanguage) {
         setSelectedLanguage(result.selectedLanguage);
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    chrome.storage.local.get('openInWeb').then(result => {
+      if (result.openInWeb === false) {
+        setOpenInWeb(false);
+      } else {
+        chrome.storage.local.set({ openInWeb: true });
       }
     });
   }, []);
@@ -100,6 +123,16 @@ const SidePanel = () => {
     chrome.storage.local.set({ selectedLanguage: newLanguage });
   }, []);
 
+  const handleOpenInWebChange = useCallback((newValue: boolean) => {
+    setOpenInWeb(newValue);
+    chrome.storage.local.set({ openInWeb: newValue });
+    chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
+      if (tabs[0]?.id) {
+        chrome.tabs.sendMessage(tabs[0].id, { type: 'OPEN_IN_WEB_CHANGED', value: newValue });
+      }
+    });
+  }, []);
+
   useEffect(() => {
     const handleMessage = (
       message: ThreadDataMessage,
@@ -108,15 +141,12 @@ const SidePanel = () => {
       sendResponse: () => void,
     ) => {
       if (message.type === 'THREAD_DATA_RESULT') {
-        setIsLoading(true);
-        setHasReceivedData(true);
         setThreadData(null);
         setMessages([]);
         setThreadUrl(message.url ? convertToWebUrl(message.url) : '');
 
         setTimeout(() => {
           setThreadData(message.payload);
-          setIsLoading(false);
           const formattedData = formatThreadForLLM(message.payload);
           handleAskAssistant(formattedData, true);
         }, 100);
@@ -153,62 +183,60 @@ const SidePanel = () => {
     await handleAskAssistant(userInput);
   };
 
-  if (!hasReceivedData) {
-    return (
-      <div className={`flex h-screen items-center justify-center ${isLight ? 'bg-slate-50' : 'bg-gray-800'}`}>
-        <p className={`text-lg ${isLight ? 'text-gray-900' : 'text-gray-100'}`}>Hello! Select a Slack thread first</p>
-      </div>
-    );
-  }
-
-  if (isLoading) {
-    return (
-      <div className={`flex h-screen items-center justify-center ${isLight ? 'bg-slate-50' : 'bg-gray-800'}`}>
-        <p className={`text-lg ${isLight ? 'text-gray-900' : 'text-gray-100'}`}>Analysing thread...</p>
-      </div>
-    );
-  }
-
   return (
     <div className={`App ${isLight ? 'bg-slate-50' : 'bg-gray-800'} flex h-screen flex-col text-left`}>
       <div className={`flex-1 overflow-auto p-4 ${isLight ? 'text-gray-900' : 'text-gray-100'}`}>
+        <div className="mb-4 space-y-2">
+          <div className="flex items-center gap-2">
+            <label htmlFor="open-in-web" className="font-medium">
+              Open links in web:
+            </label>
+            <input
+              id="open-in-web"
+              type="checkbox"
+              checked={openInWeb}
+              onChange={e => handleOpenInWebChange(e.target.checked)}
+              className="size-4 rounded border-gray-300 text-blue-500 focus:ring-blue-500"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <label htmlFor="language-select" className="font-medium">
+              Language:
+            </label>
+            <select
+              id="language-select"
+              value={selectedLanguage}
+              onChange={e => handleLanguageChange(e.target.value)}
+              disabled={isGenerating}
+              className={`rounded-md px-3 py-1.5 ${
+                isLight ? 'border-gray-300 bg-white text-gray-900' : 'border-gray-600 bg-gray-700 text-gray-100'
+              } border focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                isGenerating ? 'cursor-not-allowed opacity-50' : ''
+              }`}>
+              {SUPPORTED_LANGUAGES.map(lang => (
+                <option key={lang.code} value={lang.code}>
+                  {lang.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
         {threadData && (
           <div className="space-y-4">
-            <div className="mb-4 space-y-2">
-              <div className="flex items-center gap-2">
-                <label htmlFor="language-select" className="font-medium">
-                  Language:
-                </label>
-                <select
-                  id="language-select"
-                  value={selectedLanguage}
-                  onChange={e => handleLanguageChange(e.target.value)}
-                  disabled={isGenerating}
-                  className={`rounded-md px-3 py-1.5 ${
-                    isLight ? 'border-gray-300 bg-white text-gray-900' : 'border-gray-600 bg-gray-700 text-gray-100'
-                  } border focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    isGenerating ? 'cursor-not-allowed opacity-50' : ''
-                  }`}>
-                  {SUPPORTED_LANGUAGES.map(lang => (
-                    <option key={lang.code} value={lang.code}>
-                      {lang.name}
-                    </option>
-                  ))}
-                </select>
+            {threadUrl && (
+              <div className="flex items-center gap-2 text-xs text-gray-500">
+                Thread URL:
+                <a
+                  href={threadUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-block text-xs text-blue-500 hover:underline"
+                  title={threadUrl}>
+                  {formatDisplayUrl(threadUrl)}
+                </a>
               </div>
-              {threadUrl && (
-                <div className="text-sm text-gray-500">
-                  Thread URL:{' '}
-                  <a
-                    href={threadUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-500 hover:underline">
-                    {threadUrl}
-                  </a>
-                </div>
-              )}
-            </div>
+            )}
 
             <div className="space-y-4">
               {messages.map((message, index) => (
@@ -231,7 +259,16 @@ const SidePanel = () => {
             </div>
           </div>
         )}
-        {!threadData && <p>No thread data available</p>}
+        {!threadData && (
+          <div className="flex h-full items-center justify-center gap-1">
+            <span className="text-xs">Click</span>
+            <div className="flex h-6 items-center gap-2 rounded-full bg-white px-2 text-gray-900 shadow-lg">
+              <span className="text-xs">⭐️</span>
+              <span className="text-xs">Summarize</span>
+            </div>
+            <span className="text-xs">in any conversation</span>
+          </div>
+        )}
       </div>
 
       {threadData && (
