@@ -33,44 +33,52 @@ export default function App() {
 
   useEffect(() => {
     const handleMouseEnter = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (
-        target.getAttribute('data-qa') === 'reply_bar_view_thread' ||
-        (target.tagName === 'A' && target.getAttribute('href')?.includes('/archives/'))
-      ) {
-        clearHideTimeout();
-        const rect = target.getBoundingClientRect();
-        const linkElement = target.getAttribute('data-qa') === 'reply_bar_view_thread' ? target.closest('a') : target;
-        const linkUrl = linkElement?.getAttribute('href') || '';
+      const target = e.target instanceof Element ? e.target : null;
+      if (!target) return;
 
-        setPosition({
-          x: rect.right,
-          y: rect.top + rect.height / 2,
-          show: true,
-          linkUrl,
-        });
-      }
+      if (target.closest('#star-button')) return;
+
+      const matchingElement = target.closest('[data-qa="reply_bar_view_thread"], a[href*="/archives/"]');
+      if (!matchingElement) return;
+
+      clearHideTimeout();
+      const rect = matchingElement.getBoundingClientRect();
+      const linkElement =
+        matchingElement.getAttribute('data-qa') === 'reply_bar_view_thread'
+          ? matchingElement.closest('a')
+          : matchingElement;
+      const linkUrl = linkElement?.getAttribute('href') || '';
+
+      setPosition({
+        x: rect.right,
+        y: rect.top + rect.height / 2,
+        show: true,
+        linkUrl,
+      });
     };
 
     const handleMouseLeave = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      const relatedTarget = e.relatedTarget as HTMLElement;
+      const target = e.target instanceof Element ? e.target : null;
+      const relatedTarget = e.relatedTarget instanceof Element ? e.relatedTarget : null;
+      if (!target) return;
 
-      if (
-        (target.getAttribute('data-qa') === 'reply_bar_view_thread' || target.tagName === 'A') &&
-        !relatedTarget?.closest('#star-button') &&
-        !isButtonHovered
-      ) {
+      if (relatedTarget?.closest('#star-button')) return;
+
+      const isLeavingRelevantElement =
+        target.matches('[data-qa="reply_bar_view_thread"], a[href*="/archives/"]') ||
+        target.closest('[data-qa="reply_bar_view_thread"], a[href*="/archives/"]');
+
+      if (isLeavingRelevantElement && !isButtonHovered) {
         hideButton();
       }
     };
 
-    document.addEventListener('mouseenter', handleMouseEnter, true);
-    document.addEventListener('mouseleave', handleMouseLeave, true);
+    document.addEventListener('mouseover', handleMouseEnter, true);
+    document.addEventListener('mouseout', handleMouseLeave, true);
 
     return () => {
-      document.removeEventListener('mouseenter', handleMouseEnter, true);
-      document.removeEventListener('mouseleave', handleMouseLeave, true);
+      document.removeEventListener('mouseover', handleMouseEnter, true);
+      document.removeEventListener('mouseout', handleMouseLeave, true);
       clearHideTimeout();
     };
   }, [isButtonHovered, clearHideTimeout, hideButton]);
