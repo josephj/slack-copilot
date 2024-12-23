@@ -1,6 +1,6 @@
 import type { Language } from './types';
 
-export const DEFAULT_LANGUAGE_CODE: Language['code'] = 'en-AU';
+export const DEFAULT_LANGUAGE_CODE: Language['code'] = 'zh-TW';
 
 export const SUPPORTED_LANGUAGES: Language[] = [
   { code: 'zh-TW', name: 'Traditional Chinese (Taiwan)' },

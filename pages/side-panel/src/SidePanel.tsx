@@ -47,6 +47,9 @@ const SidePanel = () => {
     chrome.storage.local.get('selectedLanguage').then(result => {
       if (result.selectedLanguage) {
         setSelectedLanguage(result.selectedLanguage);
+      } else {
+        setSelectedLanguage('zh-TW');
+        chrome.storage.local.set({ selectedLanguage: 'zh-TW' });
       }
     });
   }, []);
